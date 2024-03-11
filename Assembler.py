@@ -1,4 +1,5 @@
 import re
+import sys
 def Binary_convertor(a,b):
     a=int(a)
     if not(-2147483648<=a<=2147483647):
@@ -220,7 +221,7 @@ def b_type(data,i):
     ans=[]
     if(data[0]=='beq'):
         if(data[3].isalpha()):
-            temp = (i-label_dict.get(data[3]))*4
+            temp = (label_dict.get(data[3])-i)*4
             data[3]=temp
         ans.append('1100011')  #opcode
         binr=Binary_convertor(data[3],32)
@@ -234,7 +235,7 @@ def b_type(data,i):
         ans.append(imm2)  #imm[12|10:5]
     if(data[0]=='bne'):
         if(data[3].isalpha()):
-            temp = (i-label_dict.get(data[3]))*4
+            temp = (label_dict.get(data[3])-i)*4
             data[3]=temp
         ans.append('1100011')  #opcode
         binr=Binary_convertor(data[3],32)
@@ -248,7 +249,7 @@ def b_type(data,i):
         ans.append(imm2)  #imm[12|10:5]
     if(data[0]=='blt'):
         if(data[3].isalpha()):
-            temp = (i-label_dict.get(data[3]))*4
+            temp = (label_dict.get(data[3])-i)*4
             data[3]=temp
         ans.append('1100011')  #opcode
         binr=Binary_convertor(data[3],32)
@@ -263,7 +264,7 @@ def b_type(data,i):
         ans.append(imm2)  #imm[12|10:5]
     if(data[0]=='bge'):
         if(data[3].isalpha()):
-            temp = (i-label_dict.get(data[3]))*4
+            temp = (label_dict.get(data[3])-i)*4
             data[3]=temp
         ans.append('1100011')  #opcode
         binr=Binary_convertor(data[3],32)
@@ -277,7 +278,7 @@ def b_type(data,i):
         ans.append(imm2)  #imm[12|10:5]
     if(data[0]=='bltu'):
         if(data[3].isalpha()):
-            temp = (i-label_dict.get(data[3]))*4
+            temp = (label_dict.get(data[3])-i)*4
             data[3]=temp
         ans.append('1100011')  #opcode
         binr=Binary_convertor(data[3],32)
@@ -291,7 +292,7 @@ def b_type(data,i):
         ans.append(imm2)  #imm[12|10:5]
     if(data[0]=='bgeu'):
         if(data[3].isalpha()):
-            temp = (i-label_dict.get(data[3]))*4
+            temp = (label_dict.get(data[3])-i)*4
             data[3]=temp
         ans.append('1100011')  #opcode
         binr=Binary_convertor(data[3],32)
@@ -334,7 +335,7 @@ def j_type(data,i):
     ans=[]
     if (data[0]=='jal'):
         if(data[2].isalpha()):
-            temp = (i-label_dict.get(data[2]))*4
+            temp = (label_dict.get(data[2])-i)*4
             data[2]=temp
         ans.append('1101111')
         ans.append(reg_add(data[1]))
@@ -358,7 +359,7 @@ def Switch_case(case_value,data,i):
         'sub':r_type,
         'sll':r_type,
         'slt':r_type,
-        'stlu':r_type,
+        'sltu':r_type,
         'xor':r_type,
         'srl':r_type,
         'or':r_type,
@@ -397,8 +398,8 @@ def Switch_case(case_value,data,i):
 
 final_ans=[]
 
-file_name = input("Enter the file name: ")
-output_name = input("Enter the output file name: ")
+file_name = sys.argv[1]
+output_name = sys.argv[2]
 check = 0
 label_dict={}
 with open(file_name,"+r") as input_file:

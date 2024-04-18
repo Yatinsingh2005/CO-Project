@@ -1,3 +1,6 @@
+import sys
+input_file = sys.argv[1]
+output_file = sys.argv[2]
 def Binary_convertor(a,b):
     a=int(a)
     temp = abs(a)
@@ -19,18 +22,12 @@ def Binary_convertor(a,b):
     return s
 
 def Decimal_converter(binary):
-    # Check if the number is negative
     if binary[0] == '1':
-        # Convert the binary number to its decimal value
         decimal = int(binary, 2)
-        # Invert the bits
         inverted_bits = ''.join('1' if bit == '0' else '0' for bit in binary)
-        # Add 1 to get the positive value
         positive_value = int(inverted_bits, 2) + 1
-        # Convert to negative by multiplying with -1
         decimal = -positive_value
     else:
-        # If the number is positive, convert it directly to decimal
         decimal = int(binary, 2)
     return decimal
 
@@ -193,32 +190,32 @@ def instruction_srl(a,b):
 def instruction_or(a,b):
     temp1 = int(a,2)  #rs1
     temp2 = int(b,2)  #rs2
-    ans = a|b
+    ans = temp1|temp2
     final_ans =Binary_convertor(ans,32)
     return final_ans  # to be stored in rd
 
 def instruction_and(a,b):
     temp1 = int(a,2)  #rs1
     temp2 = int(b,2)  #rs2
-    ans = a&b
+    ans = temp1&temp2
     final_ans =Binary_convertor(ans,32)
     return final_ans # to be stored in rd
 
 
 def r_type(data):
     global PC
-    opcode = data[-7::]
-    rd = data[-12:-7]
-    funct3 = data[-15:-12]
-    rs1 = data[-20:-15]
-    rs2 = data[-25:-20]
-    funct7 = data[-32:-25]
+    opcode = data[-7:]
+    rd = data[20:25]
+    funct3 = data[17:20]
+    rs1 = data[12:17]
+    rs2 = data[7:12]
+    funct7 = data[0:7]
     
     if (funct3=='000' and funct7=='0000000'): #add
         register_dict[rd] = "0b"+instruction_add(register_dict[rs1][2:],register_dict[rs2][2:])
-    if(funct7=='000' and funct7=='0100000'): #sub
-        register_dict[rd] ="0b" +instruction_add(register_dict[rs1][2:],register_dict[rs2][2:])
-    if(funct3=='001'): #sll
+    elif(funct3=='000' and funct7 == '0100000'): #sub
+        register_dict[rd] = "0b" + instruction_sub(register_dict[rs1][2:],register_dict[rs2][2:])
+    elif(funct3=='001'): #sll
         register_dict[rd] ="0b" +instruction_sll(register_dict[rs1][2:],register_dict[rs2][2:])
     if(funct3=='010'): #slt
         register_dict[rd] ="0b" +instruction_slt(register_dict[rs1][2:],register_dict[rs2][2:])
@@ -242,6 +239,7 @@ def i_type(data):
     funct3 = data[-15:-12]
     rs1 = data[-20:-15]
     imm = data[-32:-20]
+    
     if funct3=='010':
         #lw
         temp=instruction_add(register_dict[rs1][2:],sign_extend(imm,32))
@@ -249,20 +247,22 @@ def i_type(data):
         temp1=hex(int(temp,2))[2:].lstrip('0')
         temp1='0x' + temp1.zfill(10- 2)
         register_dict[rd]=datamemory[temp1]
+        PC = instruction_add(PC,Binary_convertor(4,32))
     
     elif funct3 == '000' and opcode=='0010011':  
         #addi
         register_dict[rd]="0b"+instruction_add(register_dict[rs1][2:],sign_extend(imm,32))
+        PC = instruction_add(PC,Binary_convertor(4,32))
     elif funct3 == '011':
         #sltiu
         if binary_to_decimal(register_dict[rs1][2:])<binary_to_decimal(imm):
             register_dict[rd]="0b"+Binary_convertor(1,32)
-    else:
-        global PC
-        register_dict[rd]=instruction_add(PC,Binary_convertor(4,32))
+            PC = instruction_add(PC,Binary_convertor(4,32))
+    else: #jalr
+        register_dict[rd]="0b"+instruction_add(PC,Binary_convertor(4,32))
         PC=instruction_add(register_dict[rs1][2:],sign_extend(imm,32))
         PC=PC[:-1]+'0'
-    PC = instruction_add(PC,Binary_convertor(4,32))
+    
 
 def s_type(data):
     global PC
@@ -274,52 +274,45 @@ def s_type(data):
     imm2 = data[-32:-25]
     imm =imm2+imm1
     temp=instruction_add(register_dict[rs1][2:],sign_extend(imm,32))
-    # temp=hex(int(temp,2)).zfill(8)
-    # register_dict[rs2]=datamemory[temp]
-    # temp=hex(int(temp,2))[2:]
     temp1=hex(int(temp,2))[2:].lstrip('0')
-    temp1='0x' + temp1.zfill(10- 2)
-    register_dict[rs2]=datamemory[temp1]
+    temp1='0x' + temp1.zfill(8)
+    datamemory[temp1] = register_dict[rs2]
     PC = instruction_add(PC,Binary_convertor(4,32))
 def b_type(data):
     global PC
     opcode = data[-7::]
-    # imm1 = data[12:-7]
-    funct3 = data[-15:-12]
-    rs1 = data[-20:-15]
-    rs2 = data[-25:-20]
-    # imm2 = data[-32:-25]
-    imm = data[0] + data[-8] + data[1:7] +data[-12:-8]+"0"
-    # imm=  to be done
+    funct3 = data[17:20]
+    rs1 = register_dict[data[12:17]]
+    rs2 = register_dict[data[7:12]]
+    imm = data[0] + data[24] + data[1:7] +data[20:24]+"0"
     temp_PC = Decimal_converter(PC)//4
-    temp_imm = Decimal_converter(sign_extend(imm,32))
-    ans_PC = (temp_imm+temp_PC) *4
+    temp_imm = Decimal_converter(sign_extend(imm,32))//4
+    ans_PC = (temp_imm+temp_PC) * 4
     if(funct3=='000'):
         if(rs1==rs2): #beq
-            # PC=instruction_add(PC,sign_extend(imm,32)) # imm 12:1
             PC = Binary_convertor(ans_PC,32)
-    if(funct3=='001'):
+            return
+    elif(funct3=='001'):
         if(rs1!=rs2):
-            # PC=instruction_add(PC,sign_extend(imm,32)) # imm 12:1
             PC = Binary_convertor(ans_PC,32)
-    if(funct3=='100'):
+            return
+    elif(funct3=='100'):
         if(Decimal_converter(rs1)>=Decimal_converter(rs2)):
-            # PC=instruction_add(PC,sign_extend(imm,32)) # imm 12:1
             PC = Binary_convertor(ans_PC,32)
-    if(funct3=='101'):
+            return
+    elif(funct3=='101'):
         if(binary_to_decimal(rs1)>=binary_to_decimal(rs2)):
-            # PC=instruction_add(PC,sign_extend(imm,32)) # imm 12:1
             PC = Binary_convertor(ans_PC,32)
-    if(funct3=='110'):
+            return
+    elif(funct3=='110'):
         if(Decimal_converter(rs1)<Decimal_converter(rs2)):
-            # PC=instruction_add(PC,sign_extend(imm,32)) # imm 12:1
             PC = Binary_convertor(ans_PC,32)
-    if(funct3=='111'):
+            return
+    elif (funct3=='111'):
         if(binary_to_decimal(rs1)<binary_to_decimal(rs2)):
-            # PC=instruction_add(PC,sign_extend(imm,32)) # imm 12:1
             PC = Binary_convertor(ans_PC,32)
-    # if(rs1==rs2): #ne
-    # PC = instruction_add(PC,Binary_convertor(4,32))
+            return
+    PC = instruction_add(PC,Binary_convertor(4,32))
 def u_type(data):
     global PC
     opcode = data[-7::]
@@ -327,23 +320,28 @@ def u_type(data):
     imm = data[-32:-12]
     if opcode=="0110111":
         #lui
-        register_dict[rd]=imm+("0"*12)
+        register_dict[rd]="0b"+imm+("0"*12) ###
     else:
         #auipe
-        register_dict[rd]=instruction_add(PC,imm+("0"*12))
+        register_dict[rd]="0b"+instruction_add(PC,imm+("0"*12))  ###
     PC = instruction_add(PC,Binary_convertor(4,32))
 def j_type(data):
     global PC
     opcode = data[-7::]
     rd = data[-12:-7]
-    imm = data[-32:-12]
-    global PC
-    register_dict[rd]=instruction_add(PC,Binary_convertor(4,32))
-    PC=instruction_add(PC,sign_extend(imm+"0",32))
+    temp_imm=data[0]+data[12:20]+data[11]+data[1:11]+"0"
+    temp_PC = Decimal_converter(PC)//4
+    temp_imm = Decimal_converter(sign_extend(temp_imm,32))//4
+    register_dict[rd]="0b"+instruction_add(PC,Binary_convertor(4,32))  ###
+    
+    ans_PC = (temp_imm+temp_PC) * 4
+    PC = Binary_convertor(ans_PC,32)
     PC=PC[:-1]+'0'
-    # PC = instruction_add(PC,Binary_convertor(4,32))
+    
 def default_case(data):
+    global PC
     print("error: ",data[0],)
+    PC = instruction_add(PC,Binary_convertor(4,32))
     return
 
 def Switch_case(case_value,data):
@@ -359,26 +357,25 @@ def Switch_case(case_value,data):
          '1101111': j_type,
     }
     switch_dict.get(case_value,default_case)(data)
-file_name = input("Enter the file name: ")
-with open(file_name,"+r") as input_file:
+with open(output_file, 'w') as f:
+    f.write("")
+with open(input_file,"+r") as input_file:
     lines = [line.rstrip('\n') for line in input_file.readlines()]
-    while((Decimal_converter(PC)//4)<=len(lines)):
-    # if(True):
+with open(output_file, 'a') as f:
+    while(True):
         a=lines[Decimal_converter(PC)//4] 
-        if not a:
-            break
-        if not a.strip():  #for skipping empty lines
-            continue
-        # a=a[::-1]
         Switch_case(a[-7::],a)  #-1:-8:-1
-        # break
-        print("0b"+PC,end=" ")
+        register_dict["00000"] = "0b"+"0"*32
+        f.write("0b"+PC+" ")
         for key,value in register_dict.items():
-            print(value,end=" ")
-        print('\n')
-
-        if (Decimal_converter(PC)//4 ==11):  # error in line 11
+            f.write(value + " ")
+        f.write('\n')
+        if a == "00000000000000000000000001100011":
+            print("HLT MET")
             break
+    for key,value in datamemory.items():
+        f.write(key+":"+value+"\n")
+
             # print(key,":",value,end=" ")
         #  '0110011': r_type,
         #  '0000011': i_type,
@@ -389,79 +386,3 @@ with open(file_name,"+r") as input_file:
         #  '0110111': u_type,
         #  '1101111': j_type,
 #register_dict = {'00000':'0b0000000000000000000000000000','00001':'0b0000000000000000000000000000','00010':'0b0000000000000000000000000000','00011':'0b0000000000000000000000000000','00100':'0b0000000000000000000000000000','00101':'0b0000000000000000000000000000','00110':'0b0000000000000000000000000000','00111':'0b0000000000000000000000000000','01000':'0b0000000000000000000000000000','01010':'0b0000000000000000000000000000','01011':'0b0000000000000000000000000000','01100':'0b0000000000000000000000000000','01101':'0b0000000000000000000000000000','01110':'0b0000000000000000000000000000','01111':'0b0000000000000000000000000000','10000':'0b0000000000000000000000000000','10001':'0b0000000000000000000000000000','10010':'0b0000000000000000000000000000','10011':'0b0000000000000000000000000000','10100':'0b0000000000000000000000000000','10101':'0b0000000000000000000000000000','10110':'0b0000000000000000000000000000','10111':'0b0000000000000000000000000000','11000':'0b0000000000000000000000000000','11001':'0b0000000000000000000000000000','11010':'0b0000000000000000000000000000','11011':'0b0000000000000000000000000000','11100':'0b0000000000000000000000000000','11101':'0b0000000000000000000000000000','11110':'0b0000000000000000000000000000','11111':'0b0000000000000000000000000000'}
-    '''
-    
-def reg_convertor(register):
-    if(Decimal_converter(register)==0):
-        return 'zero'
-    if(Decimal_converter(register)==1):
-        return 'ra'
-    if(Decimal_converter(register)==2):
-        return 'sp'
-    if(Decimal_converter(register)==3):
-        return 'gp'
-    if(Decimal_converter(register)==4):
-        return 'tp'
-    if(Decimal_converter(register)==5):
-        return 't0'
-    if(Decimal_converter(register)==6):
-        return 't1'
-    if(Decimal_converter(register)==7):
-        return 't2'
-    if(Decimal_converter(register)==8):
-        return 's0'  # assumed s0 can be fp
-    if(Decimal_converter(register)==9):
-        return 's1'
-    if(Decimal_converter(register)==10):
-        return 'a0'
-    if(Decimal_converter(register)==11):
-        return 'a1'
-    if(Decimal_converter(register)==12):
-        return 'a2'
-    if(Decimal_converter(register)==13):
-        return 'a3'
-    if(Decimal_converter(register)==14):
-        return 'a4'
-    if(Decimal_converter(register)==15):
-        return 'a5'
-    if(Decimal_converter(register)==16):
-        return 'a6'
-    if(Decimal_converter(register)==17):
-        return 'a7'
-    if(Decimal_converter(register)==18):
-        return 's2'
-    if(Decimal_converter(register)==19):
-        return 's3'
-    if(Decimal_converter(register)==20):
-        return 's4'
-    if(Decimal_converter(register)==21):
-        return 's5'
-    if(Decimal_converter(register)==22):
-        return 's6'
-    if(Decimal_converter(register)==23):
-        return 's7'    
-    if(Decimal_converter(register)==24):
-        return 's8'
-    if(Decimal_converter(register)==25):
-        return 's9'
-    if(Decimal_converter(register)==26):
-        return 's10'
-    if(Decimal_converter(register)==27):
-        return 's11'
-    if(Decimal_converter(register)==28):
-        return 't3'
-    if(Decimal_converter(register)==29):
-        return 't4'
-    if(Decimal_converter(register)==30):
-        return 't5'
-        '''
-# file_name = input("Enter the file name: ")
-# with open(file_name,"+r") as input_file:
-#     while(True):
-#         a = input_file.readline()
-#         if not a:
-#             break
-#         if not a.strip():  #for skipping empty lines
-#             continue
-#         # a=a[::-1]
-#         Switch_case(a[-7::],a)  #-1:-8:-1
